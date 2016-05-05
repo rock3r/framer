@@ -11,6 +11,7 @@ import java.util.concurrent.TimeUnit
 import javax.imageio.ImageIO
 
 fun main(args: Array<String>) {
+    val logger = Logger.getInstance()
     val descriptor = getDescriptor("nexus_6p")             // TODO specify device frame
     val painter = DeviceFramePainter(descriptor)
 
@@ -23,9 +24,12 @@ fun main(args: Array<String>) {
 
     releaseAdbConnection()
 
+    logger.info("Framing screenshot (${screenshot.width}x${screenshot.height}, ${screenshot.orientation.name})")
     val composite = painter.paint(screenshot, screenshot.orientation, true, true)
 
-    ImageIO.write(composite, "png", File("/Users/rock3r/Desktop/tmp/test-framed.png"))      // TODO specify output
+    val outputFile = File("/Users/rock3r/Desktop/tmp/test-framed.png")       // TODO specify output
+    ImageIO.write(composite, "png", outputFile)
+    logger.info("Framed screenshot written to ${outputFile.absolutePath}")
 }
 
 private fun getDescriptor(deviceName: String): DeviceArtDescriptor {
@@ -36,7 +40,9 @@ private fun getDescriptor(deviceName: String): DeviceArtDescriptor {
 }
 
 private fun connectToAdb(): AndroidDebugBridge {
-    println("Connecting to ADB...")
+    val logger = Logger.getInstance()
+
+    logger.info("Connecting to ADB...")
     AndroidDebugBridge.init(false)
 
     val bridge = AndroidDebugBridge.createBridge("/Users/rock3r/android-sdk-macosx/platform-tools/adb", true)       // TODO properly find ADB
@@ -49,7 +55,7 @@ private fun connectToAdb(): AndroidDebugBridge {
         }
     }
 
-    println("ADB connected. fetching devices list...")
+    logger.info("ADB connected. fetching devices list...")
 
     if (!bridge.hasInitialDeviceList()) {
         val semaphore = Semaphore(0)
@@ -60,13 +66,14 @@ private fun connectToAdb(): AndroidDebugBridge {
         AndroidDebugBridge.removeClientChangeListener(listener)
     }
 
-    println("All done!")
     return bridge
 }
 
 private fun releaseAdbConnection() {
     AndroidDebugBridge.disconnectBridge()
     AndroidDebugBridge.terminate()
+
+    Logger.getInstance().info("ADB connection released")
 }
 
 private val BufferedImage.orientation: ScreenOrientation

@@ -14,11 +14,15 @@ class Logger {
     private Logger() {
     }
 
-    void error(String s) {
-        System.err.println(s);
+    void error(String message) {
+        System.err.println(message);
     }
 
-    void error(Throwable e) {
-        e.printStackTrace();
+    void error(Throwable throwable) {
+        throwable.printStackTrace();
+    }
+
+    public void info(String message) {
+        System.out.println(message);
     }
 }
