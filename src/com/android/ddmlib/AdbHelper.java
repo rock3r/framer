@@ -43,7 +43,7 @@ final class AdbHelper {
 
     private static final int WAIT_TIME = 5; // spin-wait sleep, in ms
 
-    private static final String DEFAULT_ENCODING = "ISO-8859-1"; //$NON-NLS-1$
+    static final String DEFAULT_ENCODING = "ISO-8859-1"; //$NON-NLS-1$
 
     /**
      * do not instantiate
@@ -54,7 +54,7 @@ final class AdbHelper {
     /**
      * Response from ADB.
      */
-    private static class AdbResponse {
+    static class AdbResponse {
 
         AdbResponse() {
             message = "";
@@ -118,7 +118,7 @@ final class AdbHelper {
      * @throws AdbCommandRejectedException if adb rejects the command
      * @throws IOException                 in case of I/O error on the connection.
      */
-    public static SocketChannel createPassThroughConnection(InetSocketAddress adbSockAddr, Device device, int pid)
+    static SocketChannel createPassThroughConnection(InetSocketAddress adbSockAddr, Device device, int pid)
             throws TimeoutException, AdbCommandRejectedException, IOException {
 
         SocketChannel adbChan = SocketChannel.open(adbSockAddr);
@@ -183,7 +183,7 @@ final class AdbHelper {
      * is the length of the rest of the string, encoded as ASCII hex (case
      * doesn't matter).
      */
-    private static byte[] formAdbRequest(String req) {
+    static byte[] formAdbRequest(String req) {
         String resultStr = String.format("%04X%s", req.length(), req); //$NON-NLS-1$
         byte[] result;
         try {
@@ -206,7 +206,7 @@ final class AdbHelper {
      * @throws TimeoutException in case of timeout on the connection.
      * @throws IOException      in case of I/O error on the connection.
      */
-    private static AdbResponse readAdbResponse(SocketChannel chan, boolean readDiagString)
+    static AdbResponse readAdbResponse(SocketChannel chan, boolean readDiagString)
             throws TimeoutException, IOException {
 
         AdbResponse resp = new AdbResponse();
@@ -382,6 +382,7 @@ final class AdbHelper {
     /**
      * Identify which adb service the command should target.
      */
+    @SuppressWarnings("unused")
     private enum AdbService {
         /**
          * the shell service
@@ -789,7 +790,7 @@ final class AdbHelper {
      * @throws TimeoutException in case of timeout on the connection.
      * @throws IOException      in case of I/O error on the connection.
      */
-    private static void write(SocketChannel chan, byte[] data) throws TimeoutException, IOException {
+    static void write(SocketChannel chan, byte[] data) throws TimeoutException, IOException {
         write(chan, data, -1, DdmPreferences.getTimeOut());
     }
 
@@ -848,7 +849,7 @@ final class AdbHelper {
      * @throws AdbCommandRejectedException if adb rejects the command
      * @throws IOException                 in case of I/O error on the connection.
      */
-    private static void setDevice(SocketChannel adbChan, IDevice device)
+    static void setDevice(SocketChannel adbChan, IDevice device)
             throws TimeoutException, AdbCommandRejectedException, IOException {
         // if the device is not -1, then we first tell adb we're looking to talk
         // to a specific device

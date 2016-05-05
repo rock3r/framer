@@ -49,7 +49,7 @@ import java.util.regex.Pattern;
 /**
  * A Device. It can be a physical device or an emulator.
  */
-final class Device implements IDevice {
+public final class Device implements IDevice {
 
     /**
      * Emulator Serial Number regexp.
@@ -748,7 +748,7 @@ final class Device implements IDevice {
     /**
      * Sets the socket channel on which a track-jdwp command for this device has been sent.
      */
-    private void setClientMonitoringSocket(@NonNull SocketChannel socketChannel) {
+    void setClientMonitoringSocket(@NonNull SocketChannel socketChannel) {
         mSocketChannel = socketChannel;
     }
 
