@@ -1,15 +1,21 @@
 package net.frakbot.framer
 
+import com.android.ddmlib.AndroidDebugBridge
+import com.android.ddmlib.Client
+import net.frakbot.framer.device.ScreenOrientation
 import net.frakbot.framer.device.obtainScreenshot
+import java.awt.image.BufferedImage
 import java.io.File
+import java.util.concurrent.Semaphore
+import java.util.concurrent.TimeUnit
 import javax.imageio.ImageIO
 
-private class FramerMain(val args: ArgumentsHolder) {
+internal class FramerMain(val args: ArgumentsHolder) {
 
     val logger = Logger.getInstance()
 
     fun run() {
-        val descriptor = getDescriptor(args.descriptorName.normalize())
+        val descriptor = getDescriptor(args.normalizedDescriptorName)
         val painter = DeviceFramePainter(descriptor)
 
         val bridge = connectToAdb()
@@ -28,4 +34,60 @@ private class FramerMain(val args: ArgumentsHolder) {
         ImageIO.write(composite, "png", outputFile)
         logger.info("Framed screenshot written to ${outputFile.absolutePath}")
     }
+
+    private fun getDescriptor(deviceName: String): DeviceArtDescriptor {
+        val descriptors = DeviceArtDescriptor.getDescriptors(null)
+
+        return descriptors.find { it.id.equals(deviceName) }
+                ?: throw IllegalArgumentException("Descriptor with ID '$deviceName' doesn't exist")
+    }
+
+    private fun connectToAdb(): AndroidDebugBridge {
+        val logger = Logger.getInstance()
+
+        logger.info("Connecting to ADB...")
+        AndroidDebugBridge.init(false)
+
+        val bridge = AndroidDebugBridge.createBridge("/Users/rock3r/android-sdk-macosx/platform-tools/adb", true)       // TODO properly find ADB
+        while (!bridge.isConnected) {
+            try {
+                TimeUnit.MILLISECONDS.sleep(200)
+            } catch (e: InterruptedException) {
+                // if cancelled, don't wait for connection and return immediately
+                throw RuntimeException("Timed out attempting to connect to adb")
+            }
+        }
+
+        logger.info("ADB connected. fetching devices list...")
+
+        if (!bridge.hasInitialDeviceList()) {
+            val semaphore = Semaphore(0)
+            val listener: (Client, Int) -> Unit = { client, i -> semaphore.release() }
+            AndroidDebugBridge.addClientChangeListener(listener)
+
+            semaphore.acquire()
+            AndroidDebugBridge.removeClientChangeListener(listener)
+        }
+
+        return bridge
+    }
+
+    private fun releaseAdbConnection() {
+        AndroidDebugBridge.disconnectBridge()
+        AndroidDebugBridge.terminate()
+
+        Logger.getInstance().info("ADB connection released")
+    }
+
+    private val BufferedImage.orientation: ScreenOrientation
+        get() {
+            if (height > width) {
+                return ScreenOrientation.PORTRAIT
+            } else if (height == width) {
+                return ScreenOrientation.SQUARE
+            } else {
+                return ScreenOrientation.LANDSCAPE
+            }
+        }
+
 }
