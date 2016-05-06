@@ -4,32 +4,60 @@ import com.android.ddmlib.AndroidDebugBridge
 import com.android.ddmlib.Client
 import net.frakbot.framer.device.ScreenOrientation
 import net.frakbot.framer.device.obtainScreenshot
+import org.kohsuke.args4j.CmdLineParser
 import java.awt.image.BufferedImage
 import java.io.File
+import java.util.*
 import java.util.concurrent.Semaphore
 import java.util.concurrent.TimeUnit
 import javax.imageio.ImageIO
 
 fun main(args: Array<String>) {
+    val argumentsHolder = ArgumentsHolder()
+    val argsParser = CmdLineParser(argumentsHolder)
+
+    try {
+        argsParser.parse(args)
+    } catch(e: Exception) {
+        Logger.getInstance().error("Error while parsing the arguments.")
+        argsParser.printUsage(System.err)
+        System.exit(0)
+    }
+
+    FramerMain(argumentsHolder).run()
+}
+
+private fun CmdLineParser.parse(args: Array<String>) = parseArgument(args.toMutableList())
+
+private class FramerMain(val args: ArgumentsHolder) {
+
     val logger = Logger.getInstance()
-    val descriptor = getDescriptor("nexus_6p")             // TODO specify device frame
-    val painter = DeviceFramePainter(descriptor)
 
-    val bridge = connectToAdb()
+    fun run() {
+        val descriptor = getDescriptor(args.descriptorName.normalize())
+        val painter = DeviceFramePainter(descriptor)
 
-    val devices = bridge.devices
+        val bridge = connectToAdb()
 
-    val device = devices[0]     // TODO properly select devices
-    val screenshot = device.obtainScreenshot(bridge)
+        val devices = bridge.devices
 
-    releaseAdbConnection()
+        val device = devices[0]     // TODO properly select devices
+        val screenshot = device.obtainScreenshot(bridge)
 
-    logger.info("Framing screenshot (${screenshot.width}x${screenshot.height}, ${screenshot.orientation.name})")
-    val composite = painter.paint(screenshot, screenshot.orientation, true, true)
+        releaseAdbConnection()
 
-    val outputFile = File("/Users/rock3r/Desktop/tmp/test-framed.png")       // TODO specify output
-    ImageIO.write(composite, "png", outputFile)
-    logger.info("Framed screenshot written to ${outputFile.absolutePath}")
+        logger.info("Framing screenshot (${screenshot.width}x${screenshot.height}, ${screenshot.orientation.name})")
+        val composite = painter.paint(screenshot, screenshot.orientation, true, true)
+
+        val outputFile = File("/Users/rock3r/Desktop/tmp/test-framed.png")       // TODO specify output
+        ImageIO.write(composite, "png", outputFile)
+        logger.info("Framed screenshot written to ${outputFile.absolutePath}")
+    }
+}
+
+private fun String.normalize(): String {
+    val lowerCase = this.toLowerCase(Locale.US)
+    return lowerCase.replace(Regex.fromLiteral("[^\\w]"), "_")
 }
 
 private fun getDescriptor(deviceName: String): DeviceArtDescriptor {
