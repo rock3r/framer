@@ -2,6 +2,7 @@ package net.frakbot.framer
 
 import com.android.ddmlib.AndroidDebugBridge
 import com.android.ddmlib.Client
+import com.android.ddmlib.IDevice
 import net.frakbot.framer.device.ScreenOrientation
 import net.frakbot.framer.device.obtainScreenshot
 import java.awt.image.BufferedImage
@@ -15,15 +16,15 @@ internal class FramerMain(val args: ArgumentsHolder) {
     val logger = Logger.getInstance()
 
     fun run() {
-        val descriptor = getDescriptor(args.normalizedDescriptorName)
-        val painter = DeviceFramePainter(descriptor)
-
         val bridge = connectToAdb()
 
         val devices = bridge.devices
-
         val device = devices[0]     // TODO properly select devices
+
         val screenshot = device.obtainScreenshot(bridge)
+
+        val descriptor = getDeviceArtDescriptorFromArgsOrFallbackUsing(device)
+        val painter = DeviceFramePainter(descriptor)
 
         releaseAdbConnection()
 
@@ -35,11 +36,25 @@ internal class FramerMain(val args: ArgumentsHolder) {
         logger.info("Framed screenshot written to ${outputFile.absolutePath}")
     }
 
-    private fun getDescriptor(deviceName: String): DeviceArtDescriptor {
+    private fun getDeviceArtDescriptorFromArgsOrFallbackUsing(device: IDevice): DeviceArtDescriptor {
+        var descriptorName = normalizeDescriptorName(args.descriptorName)
+
+        if (descriptorName.isEmpty()) {
+            descriptorName = normalizeDescriptorName(device.getDeviceName())
+        }
+
+        return getDescriptor(descriptorName)
+                ?: throw IllegalArgumentException("The device '$descriptorName' doesn't exist")
+    }
+
+    private fun IDevice.getDeviceName(): String? {
+        return getProperty("ro.product.model")
+    }
+
+    private fun getDescriptor(deviceName: String): DeviceArtDescriptor? {
         val descriptors = DeviceArtDescriptor.getDescriptors(null)
 
         return descriptors.find { it.id.equals(deviceName) }
-                ?: throw IllegalArgumentException("Descriptor with ID '$deviceName' doesn't exist")
     }
 
     private fun connectToAdb(): AndroidDebugBridge {
