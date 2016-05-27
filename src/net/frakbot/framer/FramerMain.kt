@@ -21,40 +21,15 @@ internal class FramerMain(val args: ArgumentsHolder) {
         val devices = bridge.devices
         val device = devices[0]     // TODO properly select devices
 
-        val screenshot = device.obtainScreenshot(bridge)
-
-        val descriptor = getDeviceArtDescriptorFromArgsOrFallbackUsing(device)
-        val painter = DeviceFramePainter(descriptor)
+        val screenshotImage = device.obtainScreenshot(bridge)
 
         releaseAdbConnection()
 
-        logger.info("Framing screenshot (${screenshot.width}x${screenshot.height}, ${screenshot.orientation.name})")
-        val composite = painter.paint(screenshot, screenshot.orientation, true, true)
+        val compositeImage: BufferedImage = frameScreenshot(screenshotImage, device.getDeviceName())
 
         val outputFile = File("/Users/rock3r/Desktop/tmp/test-framed.png")       // TODO specify output
-        ImageIO.write(composite, "png", outputFile)
-        logger.info("Framed screenshot written to ${outputFile.absolutePath}")
-    }
-
-    private fun getDeviceArtDescriptorFromArgsOrFallbackUsing(device: IDevice): DeviceArtDescriptor {
-        var descriptorName = normalizeDescriptorName(args.descriptorName)
-
-        if (descriptorName.isEmpty()) {
-            descriptorName = normalizeDescriptorName(device.getDeviceName())
-        }
-
-        return getDescriptor(descriptorName)
-                ?: throw IllegalArgumentException("The device '$descriptorName' doesn't exist")
-    }
-
-    private fun IDevice.getDeviceName(): String? {
-        return getProperty("ro.product.model")
-    }
-
-    private fun getDescriptor(deviceName: String): DeviceArtDescriptor? {
-        val descriptors = DeviceArtDescriptor.getDescriptors(null)
-
-        return descriptors.find { it.id.equals(deviceName) }
+        ImageIO.write(compositeImage, "png", outputFile)
+        logger.info("Screenshot written to ${outputFile.absolutePath}")
     }
 
     private fun connectToAdb(): AndroidDebugBridge {
@@ -63,17 +38,20 @@ internal class FramerMain(val args: ArgumentsHolder) {
         logger.info("Connecting to ADB...")
         AndroidDebugBridge.init(false)
 
-        val bridge = AndroidDebugBridge.createBridge("/Users/rock3r/android-sdk-macosx/platform-tools/adb", true)       // TODO properly find ADB
+        // TODO properly find ADB
+        val bridge = AndroidDebugBridge.createBridge("/Users/rock3r/android-sdk-macosx/platform-tools/adb", true)
+                ?: throw failedToConnectToAdb()
+
         while (!bridge.isConnected) {
             try {
                 TimeUnit.MILLISECONDS.sleep(200)
             } catch (e: InterruptedException) {
                 // if cancelled, don't wait for connection and return immediately
-                throw RuntimeException("Timed out attempting to connect to adb")
+                throw adbConnectionTimedOut()
             }
         }
 
-        logger.info("ADB connected. fetching devices list...")
+        logger.info("ADB connected. Fetching devices list...")
 
         if (!bridge.hasInitialDeviceList()) {
             val semaphore = Semaphore(0)
@@ -85,6 +63,40 @@ internal class FramerMain(val args: ArgumentsHolder) {
         }
 
         return bridge
+    }
+
+    private fun IDevice.getDeviceName(): String {
+        return getProperty("ro.product.model") ?: ""
+    }
+
+    private fun frameScreenshot(screenshot: BufferedImage, connectedDeviceName: String): BufferedImage {
+        if (args.noFrame || connectedDeviceName.isNullOrBlank()) {
+            logger.info("Saving screenshot without frame")
+            return screenshot
+        } else {
+            val descriptor = getDeviceArtDescriptorFromArgsOrFallbackUsing(connectedDeviceName)
+            val painter = DeviceFramePainter(descriptor)
+
+            logger.info("Framing screenshot (${screenshot.width}x${screenshot.height}, ${screenshot.orientation.name}) with ${descriptor.name} frame")
+            return painter.paint(screenshot, screenshot.orientation, true, true)
+        }
+    }
+
+    private fun getDeviceArtDescriptorFromArgsOrFallbackUsing(connectedDeviceName: String): DeviceArtDescriptor {
+        var descriptorName = normalizeDescriptorName(args.descriptorName)
+
+        if (descriptorName.isEmpty()) {
+            descriptorName = normalizeDescriptorName(connectedDeviceName)
+        }
+
+        return getDescriptor(descriptorName)
+                ?: throw IllegalArgumentException("The device '$descriptorName' doesn't exist")
+    }
+
+    private fun getDescriptor(deviceName: String): DeviceArtDescriptor? {
+        val descriptors = DeviceArtDescriptor.getDescriptors(null)
+
+        return descriptors.find { it.id.equals(deviceName) }
     }
 
     private fun releaseAdbConnection() {

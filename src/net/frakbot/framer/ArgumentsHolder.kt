@@ -9,6 +9,9 @@ internal class ArgumentsHolder() {
     @Option(name = "-d", usage = "The name of the device frame to use (e.g., 'nexus_6p')")
     var descriptorName: String = ""
 
+    @Option(name = "-noframe", usage = "If true, skips framing (-d is ignored in that case)")
+    var noFrame: Boolean = false
+
     @Argument
     var arguments = ArrayList<String>()
 
